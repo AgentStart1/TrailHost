@@ -1,0 +1,15 @@
+{
+    email {env.ACME_EMAIL}
+}
+
+{env.DOMAIN} {
+    reverse_proxy backend:8080
+
+    # WebSocket support (Caddy handles upgrade headers automatically)
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+}

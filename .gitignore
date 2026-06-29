@@ -1,0 +1,16 @@
+# Rust
+backend/target/
+
+# Node
+extension/node_modules/
+extension/dist/
+e2e/node_modules/
+e2e/playwright-report/
+e2e/test-results/
+
+# Env
+.env
+.env.dev
+
+# Docker volumes (if bind-mounted locally)
+postgres_data/

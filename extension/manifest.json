@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "TrailHost",
+  "version": "1.0.0",
+  "description": "Sync and search your browser history across devices",
+  "permissions": ["history", "storage", "identity", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "TrailHost"
+  },
+  "chrome_url_overrides": {
+    "history": "src/history-page/index.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/auth-page/index.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "public/icon16.png",
+    "48": "public/icon48.png",
+    "128": "public/icon128.png"
+  }
+}
