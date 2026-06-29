@@ -1,0 +1,50 @@
+name: CI - Backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workdir: backend
+
+      - name: Restore testcontainers Docker image cache
+        id: docker-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-cache
+          key: docker-${{ runner.os }}-testcontainers-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: docker-${{ runner.os }}-testcontainers-
+
+      - name: Load cached Docker images
+        run: |
+          if [ -f /tmp/docker-cache/images.tar ]; then
+            docker load -i /tmp/docker-cache/images.tar
+          fi
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          JWT_SECRET: test_jwt_secret_at_least_32_chars!!
+        run: cargo test
+
+      - name: Save Docker images to cache
+        if: steps.docker-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/docker-cache
+          images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' \
+            | grep -E '^postgres:|^testcontainers/ryuk:')
+          if [ -n "$images" ]; then
+            docker save $images -o /tmp/docker-cache/images.tar
+          fi
