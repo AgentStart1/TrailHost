@@ -7,29 +7,44 @@ use serde_json::{json, Value};
 use sqlx::{AssertSqlSafe, PgPool};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, OnceCell};
 use tower::ServiceExt;
 use trailhost::{build_router, ws, AppState};
 
 const TEST_SECRET: &str = "test_jwt_secret_at_least_32_chars!!";
 
+struct TestPostgres {
+    _container: testcontainers::ContainerAsync<Postgres>,
+    port: u16,
+}
+
 // One shared container for all tests; each test gets its own database.
-static PG: OnceCell<testcontainers::ContainerAsync<Postgres>> = OnceCell::const_new();
+// Cache the mapped port with the container so parallel tests do not repeatedly
+// inspect the remote Docker daemon.
+static PG: OnceCell<TestPostgres> = OnceCell::const_new();
+static DB_SETUP: Mutex<()> = Mutex::const_new(());
 
 async fn create_test_pool() -> PgPool {
+    // Creating a database and running its migrations is intentionally serialized.
+    // The tests still execute concurrently after their isolated pools are ready.
+    let _setup_guard = DB_SETUP.lock().await;
     let container = PG
         .get_or_init(|| async {
-            Postgres::default()
+            let container = Postgres::default()
                 .start()
                 .await
-                .expect("failed to start postgres container")
+                .expect("failed to start postgres container");
+            let port = container
+                .get_host_port_ipv4(5432)
+                .await
+                .expect("postgres port");
+            TestPostgres {
+                _container: container,
+                port,
+            }
         })
         .await;
-
-    let port = container
-        .get_host_port_ipv4(5432)
-        .await
-        .expect("postgres port");
+    let port = container.port;
 
     // Create a unique database so tests are fully isolated
     let base_url = format!("postgres://postgres:postgres@127.0.0.1:{}/postgres", port);

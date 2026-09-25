@@ -60,7 +60,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/auth/logout", post(auth::logout))
         .route("/api/history", get(history::list_history))
         .route("/api/history/batch", post(history::upsert_batch))
-        .route("/api/history/:id", delete(history::delete_entry))
+        .route("/api/history/{id}", delete(history::delete_entry))
         .route("/api/ws", get(ws::ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(state)
