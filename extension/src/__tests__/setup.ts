@@ -1,5 +1,5 @@
 import { vi, beforeEach } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 
 // Shared in-memory storage, mutated in place so closures always see current state
 const storage: Record<string, unknown> = {};
