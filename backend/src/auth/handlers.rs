@@ -1,6 +1,5 @@
 use axum::{extract::State, http::StatusCode, Json};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use uuid::Uuid;
 
 use crate::AppState;
@@ -11,9 +10,8 @@ pub async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
-    let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default()
-        .hash_password(req.password.as_bytes(), &salt)
+        .hash_password(req.password.as_bytes())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .to_string();
 

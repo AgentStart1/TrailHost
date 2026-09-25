@@ -4,7 +4,6 @@ pub mod history;
 pub mod ws;
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
     routing::{delete, get, post},
@@ -29,7 +28,6 @@ pub struct AppState {
 
 pub struct AuthUser(pub Uuid);
 
-#[async_trait]
 impl FromRequestParts<AppState> for AuthUser {
     type Rejection = StatusCode;
 

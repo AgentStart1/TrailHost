@@ -4,7 +4,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use sqlx::{AssertSqlSafe, PgPool};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tokio::sync::OnceCell;
@@ -35,7 +35,8 @@ async fn create_test_pool() -> PgPool {
     let base_url = format!("postgres://postgres:postgres@127.0.0.1:{}/postgres", port);
     let root = PgPool::connect(&base_url).await.expect("root pool");
     let db_name = format!("t{}", uuid::Uuid::new_v4().simple());
-    sqlx::query(&format!("CREATE DATABASE \"{db_name}\""))
+    // db_name is generated from a simple UUID and cannot contain SQL syntax.
+    sqlx::query(AssertSqlSafe(format!("CREATE DATABASE \"{db_name}\"")))
         .execute(&root)
         .await
         .expect("create test db");
