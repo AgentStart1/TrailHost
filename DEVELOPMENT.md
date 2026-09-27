@@ -105,6 +105,8 @@ docker compose -f docker-compose.dev.yml down -v
 
 `docker-compose.yml` 将根目录 `.env` 中的 `DOMAIN` 和 `ACME_EMAIL` 注入 Caddy 容器。`Caddyfile` 使用 `{$DOMAIN}` 和 `{$ACME_EMAIL}` 做解析期替换。
 
+`CADDY_HTTP_PORT` 和 `CADDY_HTTPS_PORT` 分别控制宿主机的 HTTP 和 HTTPS 端口映射，默认值为 80 和 443。HTTPS 的 TCP 与 HTTP/3 UDP 映射共用 `CADDY_HTTPS_PORT`；容器内端口固定为 80/443。
+
 Caddy 将请求代理到 Docker 网络内的 `backend:8080`；WebSocket 升级由 Caddy 自动处理。配置还会添加 HSTS、`X-Content-Type-Options` 和 `X-Frame-Options` 响应头。
 
 ## 常用命令

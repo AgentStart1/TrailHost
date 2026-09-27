@@ -35,6 +35,8 @@ POSTGRES_PASSWORD=change_me_strong_password
 JWT_SECRET=change_me_at_least_32_chars_random_string
 DOMAIN=history.example.com
 ACME_EMAIL=admin@example.com
+CADDY_HTTP_PORT=80
+CADDY_HTTPS_PORT=443
 ```
 
 | 变量 | 用途 | 要求 |
@@ -43,6 +45,8 @@ ACME_EMAIL=admin@example.com
 | `JWT_SECRET` | 登录令牌签名密钥 | 建议使用至少 32 字节的随机值；修改后现有登录会失效 |
 | `DOMAIN` | TrailHost 的 HTTPS 域名 | 只填写主机名，例如 `history.example.com`，不要包含协议、路径或端口 |
 | `ACME_EMAIL` | HTTPS 证书通知邮箱 | 填写有效邮箱地址 |
+| `CADDY_HTTP_PORT` | Caddy 暴露到宿主机的 HTTP 端口 | 可选，默认 `80` |
+| `CADDY_HTTPS_PORT` | Caddy 暴露到宿主机的 HTTPS 端口 | 可选，默认 `443`；TCP 和 UDP 使用同一端口 |
 
 可以用 OpenSSL 生成随机密钥：
 
@@ -51,6 +55,8 @@ openssl rand -hex 32
 ```
 
 Docker Compose 会读取根目录的 `.env`，再把 `DOMAIN` 和 `ACME_EMAIL` 传给 Caddy。仓库中的 `Caddyfile` 使用 `{$DOMAIN}` 和 `{$ACME_EMAIL}` 在解析配置前替换它们，因此常规部署不需要手动修改 `Caddyfile`。
+
+`CADDY_HTTP_PORT` 和 `CADDY_HTTPS_PORT` 控制宿主机端口，容器内仍使用 Caddy 的标准 80/443 端口。例如服务器端口已被占用时，可以设置为 `8080` 和 `8443`。使用非标准端口时，访问地址需要包含端口；若仍需自动申请公网证书，还必须通过防火墙、路由器或负载均衡器把公网 80/443 转发到这些端口。
 
 > `.env` 包含密码和密钥，不要提交到版本控制。若域名或邮箱发生变化，修改 `.env` 后运行 `docker compose up -d --force-recreate caddy` 即可应用配置。
 
