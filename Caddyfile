@@ -1,8 +1,8 @@
 {
-    email {env.ACME_EMAIL}
+    email {$ACME_EMAIL}
 }
 
-{env.DOMAIN} {
+{$DOMAIN} {
     reverse_proxy backend:8080
 
     # WebSocket support (Caddy handles upgrade headers automatically)

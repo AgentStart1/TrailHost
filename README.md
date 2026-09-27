@@ -1,188 +1,122 @@
 # TrailHost
 
-跨设备浏览器历史记录同步系统，包含 Rust 后端和浏览器插件。
+TrailHost 是一个自托管的跨设备浏览器历史记录同步服务，由服务端和 Chrome 扩展组成。扩展会批量上传浏览记录，通过 WebSocket 接收实时同步通知，并提供可搜索的自定义历史页面。
 
 ## 功能
 
-- 多设备实时同步浏览历史（WebSocket 推送）
-- 自定义历史页面，替换浏览器默认历史页，支持搜索
-- 多用户支持，注册/登录/JWT 认证
-- 支持 Chrome / Firefox（Manifest V3）
-- Docker 一键部署，Caddy 自动管理 HTTPS 证书
+- 多设备同步浏览历史，支持实时通知
+- 搜索和删除已同步的历史记录
+- 自定义历史页面，替换 Chrome 默认历史页
+- 多用户注册和登录
+- 首次登录时同步最近 7 天、最多 500 条本地历史记录
+- 待同步数量和同步状态角标
+- Docker Compose 一键部署，自动申请和续期 HTTPS 证书
 
-## 技术栈
-
-| 层 | 技术 |
-|----|------|
-| 后端 | Rust + Axum + SQLx |
-| 数据库 | PostgreSQL 16 |
-| 插件前端 | Preact + Vite + @crxjs/vite-plugin |
-| 反向代理 | Caddy（自动 Let's Encrypt） |
-| 部署 | Docker Compose |
-
-## 目录结构
-
-```
-TrailHost/
-├── backend/          # Rust API 服务
-│   ├── src/
-│   │   ├── auth/     # 注册、登录、JWT
-│   │   ├── history/  # 历史记录上报与查询
-│   │   └── ws/       # WebSocket 实时广播
-│   └── migrations/   # 数据库迁移 SQL
-├── extension/        # 浏览器插件
-│   ├── src/
-│   │   ├── api/          # 与后端通信的客户端
-│   │   ├── background/   # Service Worker（监听、批量上报、WS）
-│   │   ├── popup/        # 登录/注册弹窗
-│   │   └── history-page/ # 自定义历史页
-│   └── manifest.json
-├── docker-compose.yml
-├── Caddyfile
-└── .env.example
-```
-
-## 本地开发与测试
-
-本地测试无需域名和 HTTPS，后端直接运行在宿主机，数据库通过 Docker 启动。
+## 快速部署
 
 ### 前置要求
 
-- [Rust](https://rustup.rs/) 1.94+
-- [Docker](https://docs.docker.com/get-docker/) + Docker Compose
-- Node.js 18+
-
-### 1. 启动本地数据库
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-这会在本机 `5432` 端口启动 PostgreSQL，账号为 `trailhost / dev_password`，数据持久化在 Docker volume `postgres_dev_data`。
-
-### 2. 启动后端
-
-```bash
-cd backend
-cp ../.env.dev .env    # 包含本地 DATABASE_URL 和 JWT_SECRET
-cargo run
-```
-
-后端监听 `http://localhost:8080`，启动时自动执行数据库迁移。
-
-若需要修改代码自动重启，可安装 `cargo-watch`：
-
-```bash
-cargo install cargo-watch
-cargo watch -x run
-```
-
-### 3. 启动插件（watch 模式）
-
-新开一个终端：
-
-```bash
-cd extension
-npm install
-npm run watch   # 修改代码后自动重新构建到 dist/
-```
-
-> 也可以使用 `npm run dev` 启动 Vite 开发服务器（支持 popup/历史页 HMR，
-> 但 service worker 变更仍需手动在扩展管理页刷新插件）。
-
-### 4. 加载插件到浏览器
-
-1. 打开 `chrome://extensions`（Chrome）或 `about:debugging`（Firefox）
-2. 启用「开发者模式」
-3. 点击「加载已解压的扩展程序」，选择 `extension/dist/` 目录
-4. 插件图标出现后，输入服务器地址 `http://localhost:8080`，注册并登录
-
-之后每次 `npm run watch` 重新构建完成，在 `chrome://extensions` 点击插件的刷新按钮即可更新。
-
-### 停止本地环境
-
-```bash
-docker compose -f docker-compose.dev.yml down
-```
-
-加 `-v` 同时清除数据库数据：
-
-```bash
-docker compose -f docker-compose.dev.yml down -v
-```
-
----
-
-## 部署
+- 一台安装了 Docker 和 Docker Compose 的服务器
+- 一个指向服务器公网 IP 的域名
+- 公网可以访问服务器的 TCP 80 和 TCP 443 端口；开放 UDP 443 可启用 HTTP/3
 
 ### 1. 配置环境变量
+
+复制环境变量模板：
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env`：
+编辑项目根目录下的 `.env`：
 
 ```env
-POSTGRES_PASSWORD=your_strong_password
-JWT_SECRET=your_random_secret_at_least_32_chars
+POSTGRES_PASSWORD=change_me_strong_password
+JWT_SECRET=change_me_at_least_32_chars_random_string
+DOMAIN=history.example.com
+ACME_EMAIL=admin@example.com
 ```
 
-### 2. 配置域名
+| 变量 | 用途 | 要求 |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | 数据库密码 | 使用强随机密码；部署后不要随意修改 |
+| `JWT_SECRET` | 登录令牌签名密钥 | 建议使用至少 32 字节的随机值；修改后现有登录会失效 |
+| `DOMAIN` | TrailHost 的 HTTPS 域名 | 只填写主机名，例如 `history.example.com`，不要包含协议、路径或端口 |
+| `ACME_EMAIL` | HTTPS 证书通知邮箱 | 填写有效邮箱地址 |
 
-编辑 `Caddyfile`，将 `your-domain.com` 替换为你的域名，并填写 Let's Encrypt 通知邮箱：
+可以用 OpenSSL 生成随机密钥：
 
-```
-{
-    email your@email.com
-}
-
-your-domain.com {
-    reverse_proxy backend:8080
-    ...
-}
+```bash
+openssl rand -hex 32
 ```
 
-### 3. 启动服务
+Docker Compose 会读取根目录的 `.env`，再把 `DOMAIN` 和 `ACME_EMAIL` 传给 Caddy。仓库中的 `Caddyfile` 使用 `{$DOMAIN}` 和 `{$ACME_EMAIL}` 在解析配置前替换它们，因此常规部署不需要手动修改 `Caddyfile`。
+
+> `.env` 包含密码和密钥，不要提交到版本控制。若域名或邮箱发生变化，修改 `.env` 后运行 `docker compose up -d --force-recreate caddy` 即可应用配置。
+
+### 2. 启动服务
+
+确保域名的 DNS 记录已经生效，然后运行：
 
 ```bash
 docker compose up -d --build
 ```
 
-Caddy 会自动申请并续期 HTTPS 证书，无需额外操作。
+查看服务状态和 HTTPS 证书日志：
 
-## 安装插件
+```bash
+docker compose ps
+docker compose logs -f caddy
+```
 
-### 开发/自托管安装
+Caddy 会自动申请并续期 HTTPS 证书。证书和 Caddy 状态保存在 Docker volumes 中，重建容器不会丢失。
 
-1. 构建插件：
+部署完成后可检查服务是否正常：
+
+```bash
+curl https://history.example.com/api/health
+```
+
+成功时返回 HTTP `200 OK`。
+
+### 3. 更新或停止
+
+拉取最新代码后重新构建并启动：
+
+```bash
+docker compose up -d --build
+```
+
+停止服务但保留数据库和证书数据：
+
+```bash
+docker compose down
+```
+
+请谨慎使用 `docker compose down -v`，它会删除数据库以及 Caddy 的证书和状态。
+
+## 安装浏览器扩展
+
+### 构建
+
+需要 Node.js 22 和 npm：
 
 ```bash
 cd extension
-npm install
+npm ci
 npm run build
 ```
 
-2. 打开浏览器扩展管理页面，启用「开发者模式」
-3. 点击「加载已解压的扩展程序」，选择 `extension/dist/` 目录
+构建产物位于 `extension/dist/`。
 
-### 首次使用
+### 加载到 Chrome
 
-1. 点击浏览器工具栏中的 TrailHost 图标
-2. 输入服务器地址（如 `https://your-domain.com`）
-3. 注册账号或登录
-4. 插件开始自动同步历史记录，访问 `chrome://history` 即可看到自定义历史页
+1. 打开 `chrome://extensions`。
+2. 启用“开发者模式”。
+3. 点击“加载已解压的扩展程序”，选择 `extension/dist/`。
+4. 点击 TrailHost 图标，填写服务器地址，例如 `https://history.example.com`。
+5. 注册或登录账号。扩展会开始同步，访问 `chrome://history` 可打开 TrailHost 历史页面。
 
-## API 概览
+## 开发
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/auth/register` | 注册 |
-| POST | `/api/auth/login` | 登录 |
-| POST | `/api/auth/refresh` | 刷新 token |
-| POST | `/api/auth/logout` | 登出 |
-| POST | `/api/history/batch` | 批量上报历史 |
-| GET | `/api/history` | 查询历史（支持 `q` 搜索参数） |
-| DELETE | `/api/history/:id` | 删除单条记录 |
-| WS | `/api/ws?token=<token>` | 实时同步连接 |
-
+本地环境搭建、项目结构、测试命令和 API 参考见 [DEVELOPMENT.md](DEVELOPMENT.md)。
