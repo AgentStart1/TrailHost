@@ -24,6 +24,7 @@ pub struct AppState {
     pub db: PgPool,
     pub jwt_secret: String,
     pub ws_hub: WsHub,
+    pub registration_enabled: bool,
 }
 
 pub struct AuthUser(pub Uuid);

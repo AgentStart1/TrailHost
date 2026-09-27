@@ -94,7 +94,9 @@ export async function register(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(res.status === 409 ? "Email already registered" : text);
+    if (res.status === 409) throw new Error("Email already registered");
+    if (res.status === 403) throw new Error("Registration is disabled");
+    throw new Error(text || "Registration failed");
   }
   return res.json();
 }

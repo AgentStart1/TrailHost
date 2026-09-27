@@ -96,10 +96,14 @@ docker compose -f docker-compose.dev.yml down -v
 | --- | --- | --- | --- |
 | `DATABASE_URL` | 是 | 无 | PostgreSQL 连接地址 |
 | `JWT_SECRET` | 是 | 无 | JWT 签名密钥 |
+| `TRAILHOST_USER_EMAIL` | 否 | 无 | 启动时创建或更新的普通用户邮箱；设置后关闭注册 |
+| `TRAILHOST_USER_PASSWORD` | 否 | 无 | 预设用户密码；必须与 `TRAILHOST_USER_EMAIL` 同时设置 |
 | `BIND_ADDR` | 否 | `0.0.0.0:8080` | 后端监听地址 |
 | `RUST_LOG` | 否 | 无 | Rust 日志过滤级别；生产 Compose 设置为 `info` |
 
 生产环境的 `DATABASE_URL` 由 `docker-compose.yml` 根据 `POSTGRES_PASSWORD` 生成。
+
+后端同时收到 `TRAILHOST_USER_EMAIL` 和 `TRAILHOST_USER_PASSWORD` 时，会通过邮箱 upsert 普通用户并更新其 Argon2 密码哈希，然后将 `registration_enabled` 设为 false。此时 `POST /api/auth/register` 返回 `403 Forbidden`。只提供其中一个变量属于配置错误，后端会在监听端口前退出。
 
 ### Caddy
 
@@ -152,7 +156,7 @@ npm test
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/health` | 健康检查 |
-| `POST` | `/api/auth/register` | 注册 |
+| `POST` | `/api/auth/register` | 注册；配置预设用户时返回 `403 Forbidden` |
 | `POST` | `/api/auth/login` | 登录 |
 | `POST` | `/api/auth/refresh` | 刷新令牌 |
 | `POST` | `/api/auth/logout` | 登出 |

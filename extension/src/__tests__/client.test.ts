@@ -123,6 +123,16 @@ describe("register", () => {
       "Email already registered"
     );
   });
+
+  it("explains when registration is disabled (403)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("", { status: 403 })
+    );
+
+    await expect(register("a@b.com", "pass")).rejects.toThrow(
+      "Registration is disabled"
+    );
+  });
 });
 
 describe("login", () => {

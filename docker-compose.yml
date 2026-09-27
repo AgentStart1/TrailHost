@@ -24,6 +24,8 @@ services:
     environment:
       DATABASE_URL: postgres://trailhost:${POSTGRES_PASSWORD}@postgres:5432/trailhost
       JWT_SECRET: ${JWT_SECRET}
+      TRAILHOST_USER_EMAIL: ${TRAILHOST_USER_EMAIL:-}
+      TRAILHOST_USER_PASSWORD: ${TRAILHOST_USER_PASSWORD:-}
       BIND_ADDR: 0.0.0.0:8080
       RUST_LOG: info
     depends_on:

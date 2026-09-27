@@ -1,35 +1,55 @@
-use axum::{extract::State, http::StatusCode, Json};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use axum::{extract::State, http::StatusCode, Json};
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::AppState;
 use super::jwt::{create_access_token, create_refresh_token, verify_token};
 use super::models::{AuthResponse, LoginRequest, RefreshRequest, RegisterRequest};
+use crate::AppState;
 
 pub async fn register(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, StatusCode> {
-    let hash = Argon2::default()
-        .hash_password(req.password.as_bytes())
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .to_string();
+    if !state.registration_enabled {
+        return Err(StatusCode::FORBIDDEN);
+    }
 
-    let user_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
-    )
-    .bind(&req.email)
-    .bind(&hash)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(db_err) if db_err.code().as_deref() == Some("23505") => {
-            StatusCode::CONFLICT
-        }
-        _ => StatusCode::INTERNAL_SERVER_ERROR,
-    })?;
+    let hash = hash_password(&req.password).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let user_id: Uuid =
+        sqlx::query_scalar("INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id")
+            .bind(&req.email)
+            .bind(&hash)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::Database(db_err) if db_err.code().as_deref() == Some("23505") => {
+                    StatusCode::CONFLICT
+                }
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            })?;
 
     build_auth_response(user_id, &state.jwt_secret)
+}
+
+pub async fn provision_user(pool: &PgPool, email: &str, password: &str) -> anyhow::Result<()> {
+    let hash = hash_password(password)?;
+    sqlx::query(
+        "INSERT INTO users (email, password_hash) VALUES ($1, $2) \
+         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash",
+    )
+    .bind(email)
+    .bind(hash)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+fn hash_password(password: &str) -> anyhow::Result<String> {
+    Ok(Argon2::default()
+        .hash_password(password.as_bytes())?
+        .to_string())
 }
 
 pub async fn login(

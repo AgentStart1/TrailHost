@@ -67,10 +67,15 @@ async fn create_test_pool() -> PgPool {
 }
 
 fn make_state(pool: PgPool) -> AppState {
+    make_state_with_registration(pool, true)
+}
+
+fn make_state_with_registration(pool: PgPool, registration_enabled: bool) -> AppState {
     AppState {
         db: pool,
         jwt_secret: TEST_SECRET.to_string(),
         ws_hub: ws::new_hub(),
+        registration_enabled,
     }
 }
 
@@ -127,6 +132,43 @@ async fn register_duplicate_email() {
 
     assert_eq!(s1, StatusCode::OK);
     assert_eq!(s2, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn provisioned_user_disables_registration_and_can_login() {
+    let pool = create_test_pool().await;
+    trailhost::auth::provision_user(&pool, "owner@example.com", "first_password")
+        .await
+        .unwrap();
+    trailhost::auth::provision_user(&pool, "owner@example.com", "updated_password")
+        .await
+        .unwrap();
+    let app = build_router(make_state_with_registration(pool, false));
+
+    let (register_status, _) = post_json(
+        app.clone(),
+        "/api/auth/register",
+        json!({ "email": "another@example.com", "password": "password123" }),
+    )
+    .await;
+    assert_eq!(register_status, StatusCode::FORBIDDEN);
+
+    let (old_password_status, _) = post_json(
+        app.clone(),
+        "/api/auth/login",
+        json!({ "email": "owner@example.com", "password": "first_password" }),
+    )
+    .await;
+    assert_eq!(old_password_status, StatusCode::UNAUTHORIZED);
+
+    let (login_status, body) = post_json(
+        app,
+        "/api/auth/login",
+        json!({ "email": "owner@example.com", "password": "updated_password" }),
+    )
+    .await;
+    assert_eq!(login_status, StatusCode::OK);
+    assert!(body["access_token"].is_string());
 }
 
 #[tokio::test]

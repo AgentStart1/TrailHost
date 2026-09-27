@@ -33,6 +33,8 @@ cp .env.example .env
 ```env
 POSTGRES_PASSWORD=change_me_strong_password
 JWT_SECRET=change_me_at_least_32_chars_random_string
+TRAILHOST_USER_EMAIL=owner@example.com
+TRAILHOST_USER_PASSWORD=change_me_user_password
 DOMAIN=history.example.com
 ACME_EMAIL=admin@example.com
 CADDY_HTTP_PORT=80
@@ -43,6 +45,8 @@ CADDY_HTTPS_PORT=443
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | 数据库密码 | 使用强随机密码；部署后不要随意修改 |
 | `JWT_SECRET` | 登录令牌签名密钥 | 建议使用至少 32 字节的随机值；修改后现有登录会失效 |
+| `TRAILHOST_USER_EMAIL` | 预设普通用户邮箱 | 可选；必须与 `TRAILHOST_USER_PASSWORD` 同时设置 |
+| `TRAILHOST_USER_PASSWORD` | 预设普通用户密码 | 可选；必须与 `TRAILHOST_USER_EMAIL` 同时设置 |
 | `DOMAIN` | TrailHost 的 HTTPS 域名 | 只填写主机名，例如 `history.example.com`，不要包含协议、路径或端口 |
 | `ACME_EMAIL` | HTTPS 证书通知邮箱 | 填写有效邮箱地址 |
 | `CADDY_HTTP_PORT` | Caddy 暴露到宿主机的 HTTP 端口 | 可选，默认 `80` |
@@ -56,9 +60,15 @@ openssl rand -hex 32
 
 Docker Compose 会读取根目录的 `.env`，再把 `DOMAIN` 和 `ACME_EMAIL` 传给 Caddy。仓库中的 `Caddyfile` 使用 `{$DOMAIN}` 和 `{$ACME_EMAIL}` 在解析配置前替换它们，因此常规部署不需要手动修改 `Caddyfile`。
 
+设置 `TRAILHOST_USER_EMAIL` 和 `TRAILHOST_USER_PASSWORD` 会启用单用户部署模式。后端每次启动都会创建该普通用户，或将同邮箱用户的密码更新为环境变量中的值，同时关闭新用户注册。两项都留空时保持开放注册；只设置其中一项时后端会拒绝启动。
+
 `CADDY_HTTP_PORT` 和 `CADDY_HTTPS_PORT` 控制宿主机端口，容器内仍使用 Caddy 的标准 80/443 端口。例如服务器端口已被占用时，可以设置为 `8080` 和 `8443`。使用非标准端口时，访问地址需要包含端口；若仍需自动申请公网证书，还必须通过防火墙、路由器或负载均衡器把公网 80/443 转发到这些端口。
 
-> `.env` 包含密码和密钥，不要提交到版本控制。若域名或邮箱发生变化，修改 `.env` 后运行 `docker compose up -d --force-recreate caddy` 即可应用配置。
+> `.env` 包含密码和密钥，不要提交到版本控制。修改预设用户后需重新创建后端容器；若域名或证书邮箱发生变化，则需重新创建 Caddy 容器。
+
+```bash
+docker compose up -d --force-recreate backend caddy
+```
 
 ### 2. 启动服务
 
