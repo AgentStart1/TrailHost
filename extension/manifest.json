@@ -3,7 +3,7 @@
   "name": "TrailHost",
   "version": "1.0.0",
   "description": "Sync and search your browser history across devices",
-  "permissions": ["history", "storage", "identity", "tabs"],
+  "permissions": ["history", "storage", "identity", "tabs", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background/index.ts",
