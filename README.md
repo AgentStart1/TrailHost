@@ -48,7 +48,7 @@ TrailHost/
 
 ### 前置要求
 
-- [Rust](https://rustup.rs/)（stable）
+- [Rust](https://rustup.rs/) 1.94+
 - [Docker](https://docs.docker.com/get-docker/) + Docker Compose
 - Node.js 18+
 
