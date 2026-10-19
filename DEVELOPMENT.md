@@ -115,6 +115,10 @@ Caddy 将请求代理到 Docker 网络内的 `backend:8080`；WebSocket 升级�
 
 ## 常用命令
 
+### 依赖更新
+
+Dependabot 配置位于 `.github/dependabot.yml`。根目录的 Compose 镜像使用 `docker-compose` 生态，`backend/Dockerfile` 使用 `docker` 生态；两者需要分别配置。
+
 ### 后端
 
 ```bash
