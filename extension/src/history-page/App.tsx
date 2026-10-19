@@ -38,7 +38,7 @@ export function App() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     getTokens().then(({ accessToken }) => setAuthed(!!accessToken));
