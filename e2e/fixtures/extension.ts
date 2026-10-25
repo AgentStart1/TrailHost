@@ -12,6 +12,37 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, "../../extension/dist");
 
+async function lifecyclePhase<T>(
+  testInfo: TestInfo,
+  phase: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (process.env.E2E_DIAGNOSTICS !== "1") return await operation();
+  const logPath = testInfo.outputPath("lifecycle.jsonl");
+  const started = performance.now();
+  const record = async (event: string) => {
+    try {
+      await fs.mkdir(path.dirname(logPath), { recursive: true });
+      await fs.appendFile(logPath, JSON.stringify({
+        phase, event, pid: process.pid, worker: testInfo.workerIndex,
+        timestamp: new Date().toISOString(), elapsedMs: performance.now() - started,
+      }) + "\n");
+    } catch {
+      // Diagnostic I/O must not replace a test or cleanup failure.
+      process.stderr.write(`Unable to record lifecycle phase: ${phase}\n`);
+    }
+  };
+  await record("start");
+  let outcome = "error";
+  try {
+    const result = await operation();
+    outcome = "complete";
+    return result;
+  } finally {
+    await record(outcome);
+  }
+}
+
 type ExtensionFixtures = {
   context: BrowserContext;
   extensionId: string;
@@ -19,21 +50,12 @@ type ExtensionFixtures = {
   setStorage: (items: Record<string, string>) => Promise<void>;
 };
 
-async function deleteVideos(pages: ReturnType<BrowserContext["pages"]>) {
-  for (const page of pages) {
-    const video = page.video();
-    if (!video) continue;
-    const filePath = await video.path().catch(() => null);
-    if (filePath) await fs.unlink(filePath).catch(() => {});
-  }
-}
-
 export const test = base.extend<ExtensionFixtures>({
   context: [
     async ({}, use, testInfo: TestInfo) => {
       const videoDir = path.join(testInfo.outputDir, "videos");
 
-      const context = await chromium.launchPersistentContext("", {
+      const context = await lifecyclePhase(testInfo, "context.launch", () => chromium.launchPersistentContext("", {
         headless: false,
         recordVideo: { dir: videoDir },
         args: [
@@ -44,19 +66,34 @@ export const test = base.extend<ExtensionFixtures>({
           "--no-sandbox",
           "--disable-dev-shm-usage",
         ],
-      });
+      }));
 
       // Track every page ever opened (including ones closed mid-test)
       const allPages = [...context.pages()];
       context.on("page", (page) => allPages.push(page));
 
-      await use(context);
-
-      await context.close();
-
-      // retain-on-failure: delete videos when the test passed
-      if (testInfo.status === testInfo.expectedStatus) {
-        await deleteVideos(allPages);
+      try {
+        await use(context);
+      } finally {
+        // Closing finalizes recordings, including pages closed during the test.
+        // Attach only after close; reporters copy the completed video files.
+        await lifecyclePhase(testInfo, "context.close", () => context.close());
+        for (const [index, page] of allPages.entries()) {
+          const video = page.video();
+          if (!video) continue;
+          if (testInfo.status === testInfo.expectedStatus) {
+            // Persistent context closure also disconnects the browser, so the
+            // protocol-based video.delete() is unavailable at this point.
+            const videoPath = await lifecyclePhase(testInfo, `video.${index}.path`, () => video.path());
+            await lifecyclePhase(testInfo, `video.${index}.delete`, () => fs.unlink(videoPath));
+          } else {
+            const videoPath = await lifecyclePhase(testInfo, `video.${index}.path`, () => video.path());
+            await lifecyclePhase(testInfo, `video.${index}.attach`, () => testInfo.attach(`video-${index + 1}`, {
+              path: videoPath,
+              contentType: "video/webm",
+            }));
+          }
+        }
       }
     },
     { scope: "test" },
