@@ -1,0 +1,71 @@
+name: E2E Ubuntu assessment
+
+on:
+  push:
+    branches: [codex/e2e-investigation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assessment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: |
+            extension/package-lock.json
+            e2e/package-lock.json
+      - name: Build extension and install E2E dependencies
+        run: |
+          npm ci --prefix extension
+          npm run build --prefix extension
+          npm ci --prefix e2e
+          cd e2e
+          npx playwright install chromium --with-deps
+      - name: Run complete suite without retries
+        working-directory: e2e
+        run: npm test -- --workers=2 --retries=0 --output=test-results/complete-suite
+      - name: Diagnose repeated serial teardown
+        working-directory: e2e
+        env:
+          E2E_DIAGNOSTICS: "1"
+          DEBUG: pw:browser
+        run: npx playwright test auth-page.spec.ts --workers=1 --repeat-each=10 --retries=0 --trace=on --reporter=json --output=test-results/diagnostic-serial > diagnostic-serial.json 2> diagnostic-serial.log
+      - name: Diagnose repeated parallel teardown
+        if: ${{ !cancelled() }}
+        working-directory: e2e
+        env:
+          E2E_DIAGNOSTICS: "1"
+          DEBUG: pw:browser
+        run: npx playwright test auth-page.spec.ts --workers=2 --fully-parallel --repeat-each=10 --retries=0 --trace=on --reporter=json --output=test-results/diagnostic-parallel > diagnostic-parallel.json 2> diagnostic-parallel.log
+      - name: Verify repeated failure recordings and reports
+        if: ${{ !cancelled() }}
+        working-directory: e2e
+        env:
+          E2E_DIAGNOSTICS: "1"
+        run: |
+          for iteration in 1 2 3 4 5; do
+            npm run test:fixtures
+          done
+      - name: Benchmark single file then complete suite
+        working-directory: e2e
+        run: python3 scripts/assess_parallel.py
+      - name: Preserve reports, lifecycle phases and benchmark data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ubuntu-e2e-assessment
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+            e2e/diagnostic-*.json
+            e2e/diagnostic-*.log
+          retention-days: 7

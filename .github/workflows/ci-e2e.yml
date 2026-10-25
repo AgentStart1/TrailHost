@@ -36,6 +36,12 @@ jobs:
         working-directory: e2e
         run: npx playwright install chromium --with-deps
 
+      - name: Verify fixture recording lifecycle
+        working-directory: e2e
+        env:
+          CI: "true"
+        run: npm run test:fixtures
+
       - name: Run E2E tests
         working-directory: e2e
         env:
@@ -47,5 +53,7 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: e2e/playwright-report/
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/fixture-contract/
           retention-days: 7
