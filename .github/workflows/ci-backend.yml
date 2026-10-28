@@ -1,4 +1,5 @@
 name: CI - Backend
+# Fork-only probe: verify a new PR restores the main branch cache.
 
 on:
   push:
