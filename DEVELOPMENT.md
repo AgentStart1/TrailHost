@@ -324,8 +324,40 @@ gh api 'repos/storytellerF/TrailHost/actions/caches?ref=refs/heads/main' \
   --jq '.actions_caches[] | {key, ref, size_in_bytes, created_at, last_accessed_at}'
 ```
 
-本次修复尚未取得上述 GitHub 冷/热及新 PR 实测数据，不声明提速比例；issue #27 的
-运行验收需在 main 缓存生成后补齐。
+### fork 实测结果（2026-10-28）
+
+验证仓库为 `AgentStart1/TrailHost`，main 使用提交 `e184818`，Ubuntu 26.04 runner
+镜像 `20261025.179.1`、Rust 1.99.1（`58cf8f9c3`）。下表为 GitHub jobs API 的
+步骤及作业墙钟秒数，含 post 步骤、不含排队；小于一秒的步骤标为 `<1`。
+每次均通过 5 个单元测试和 15 个集成测试，日志无未知 `workdir` 输入警告。
+
+| 运行 | Rust 恢复 / post（秒） | Docker 恢复 / 加载 / post（秒） | 测试（秒） | 完整作业（秒） |
+| --- | --- | --- | ---: | ---: |
+| [main 冷缓存](https://github.com/AgentStart1/TrailHost/actions/runs/40669493070) | <1 / 8 | <1 / <1 / 2 | 85 | 102 |
+| [相同 main 提交热缓存](https://github.com/AgentStart1/TrailHost/actions/runs/40669802638) | 7 / <1 | 1 / 6 / <1 | 35 | 60 |
+| [新 PR 恢复 main](https://github.com/AgentStart1/TrailHost/actions/runs/40669948345) | 8 / <1 | 3 / 2 / 1 | 16 | 45 |
+| [PR 锁文件变更](https://github.com/AgentStart1/TrailHost/actions/runs/40670148464/attempts/1) | 10 / 6 | 2 / 2 / 3 | 59 | 93 |
+| [变更后的 PR 复跑](https://github.com/AgentStart1/TrailHost/actions/runs/40670148464/attempts/2) | 11 / <1 | 2 / 2 / <1 | 30 | 53 |
+
+冷运行明确报告没有可恢复的 Rust / Docker 缓存，随后在 `refs/heads/main` 保存
+Rust 缓存 386,374,248 字节（368.48 MiB）和 Docker 缓存 90,612,515 字节
+（86.41 MiB）。热运行和全新 [fork PR #1](https://github.com/AgentStart1/TrailHost/pull/1)
+均精确恢复 main 的键；缓存 API 当时仅列出 main 的这两个相关缓存，没有该 PR 自己的
+merge-ref 缓存。Rust 日志确认缓存路径包含 `backend/target`，并实际恢复了依赖编译产物。
+
+失效探针只在 fork 验证分支用 Cargo 将 `anyhow` 从 1.0.104 改为 1.0.103。
+Rust 键由 `v0-rust-backend-Linux-x64-01b81e85-3c4cb145` 变为
+`v0-rust-backend-Linux-x64-01b81e85-2fbe62b4`，回退恢复 main 的旧键并报告
+`full match: false`，重新下载和编译 anyhow 1.0.103 后通过测试。post 步骤在
+`refs/pull/1/merge` 保存新 Rust 缓存 387,955,466 字节；Docker 键也随锁文件改变，
+回退恢复原镜像后保存新键。随后对相同 PR 提交复跑，Rust 报告新键
+`full match: true`，Docker 也精确命中新键，20 个测试再次通过。
+探针和依赖变更不属于上游修复。
+
+这是上述五次运行的功能验收，runner 和编译耗时有波动，不作为稳定提速比例。
+新增 main 作业的样本成本为冷缓存 102 秒、热缓存 60 秒；这两次手动验证共 162 runner
+秒，计费分钟仍须以仓库用量报告为准。扩展和完整 E2E 没有新增 main 运行成本。
+工具链变更的键隔离沿用 action 默认行为，本次未单独实测不同 Rust 版本。
 
 ## API 参考
 
