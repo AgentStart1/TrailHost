@@ -1,10 +1,17 @@
 name: CI - Backend
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
+      - ".github/workflows/ci-backend.yml"
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -17,7 +24,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workdir: backend
+          workspaces: backend -> target
 
       - name: Restore testcontainers Docker image cache
         id: docker-cache
@@ -37,14 +44,15 @@ jobs:
         working-directory: backend
         env:
           JWT_SECRET: test_jwt_secret_at_least_32_chars!!
-        run: cargo test
+        run: cargo test --locked
 
       - name: Save Docker images to cache
         if: steps.docker-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /tmp/docker-cache
           images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' \
-            | grep -E '^postgres:|^testcontainers/ryuk:')
+            --filter 'reference=postgres:*' --filter 'reference=testcontainers/ryuk:*')
           if [ -n "$images" ]; then
-            docker save $images -o /tmp/docker-cache/images.tar
+            mapfile -t image_refs <<< "$images"
+            docker save "${image_refs[@]}" -o /tmp/docker-cache/images.tar
           fi
