@@ -274,6 +274,91 @@ Application/Defender 日志未发现 Chrome/FFmpeg 崩溃或拦截记录。这�
 30 秒超时的根因，更不能声称已被修复。新增阶段日志和浏览器日志已提供后续复现时的
 定位手段；不通过增加超时、重试、关闭录像或更换浏览器版本掩盖异常。
 
+## CI 缓存
+
+后端工作流 `ci-backend.yml` 在涉及 `backend/**` 或该工作流自身的 PR 和 main push
+上执行同一套 `cargo test --locked`，也支持手动触发。每次符合路径条件的 main push
+新增一个完整后端测试作业；扩展和 E2E 不新增 main 作业。
+
+`Swatinem/rust-cache` 使用 `workspaces: backend -> target`，实际缓存目录为
+`backend/target`，可用以下命令输出的 `target_directory` 核对：
+
+```bash
+cargo metadata --manifest-path backend/Cargo.toml --locked --no-deps --format-version 1
+```
+
+默认缓存键包含 job、Rust 工具链、
+Cargo 清单/锁文件和相关编译环境，main 与 PR 使用相同 job 和配置，PR 可以恢复 main
+的兼容缓存。锁文件变化时可以回退恢复旧依赖，Cargo 仍会编译变化的依赖；工具链变化
+会生成不同的缓存键。即使命中缓存，仍执行测试，不按命中状态跳过验证。
+
+main 的后端测试也会生成现有 Testcontainers Docker 镜像缓存，供后续 PR 恢复。
+npm 继续使用现有的 PR 缓存：尚未测得收益前，不为 npm 下载缓存额外启动 main 作业，
+也不为缓存预热重复执行完整 E2E。
+
+### 缓存验收（上游 issue #27）
+
+配置验证与 GitHub 缓存实测分开进行。本地 `actionlint` 和 Cargo metadata 可以验证
+工作流和目录，但不能证明 GitHub 缓存命中或提速。合入后按以下步骤记录运行链接、
+提交、runner 镜像和 `rustc -Vv`，避免把工具链或 runner 变化误认为缓存效果：
+
+1. 首次在 main 运行后端工作流，检查 Rust cache 日志没有未知输入警告，路径包含
+   `backend/target`，post 步骤成功保存依赖产物。仅没有可兼容缓存恢复时记作冷缓存；
+   不为制造冷运行删除共享缓存。
+2. 对相同 main 提交重新运行，记录恢复的缓存键、来源和大小，确认依赖编译产物被恢复。
+   在一个新的、涉及后端的 PR 中复核恢复 main 缓存；已有 PR 的 merge-ref 命中不能
+   单独证明跨 PR 复用。`cache-hit: false` 也可能表示前缀匹配恢复，须结合日志判断。
+3. 在后续依赖更新的 PR 中检查锁文件改变后精确键变化、旧缓存可作为回退，且
+   `cargo test --locked` 编译新依赖并通过；工具链变化时检查工具链键随之变化。
+4. 分别记录冷/热运行的 Rust 缓存恢复与保存耗时、测试步骤耗时、完整 job 耗时，
+   Docker 是否命中，以及缓存压缩大小。缓存大小取 action 日志或下方 API 的
+   `size_in_bytes`，不能用测试后 target 的磁盘占用代替。
+5. 记录新增 main 作业的实际耗时和运行次数；需要计费数据时使用仓库的 Actions
+   用量报告，不能将单个测试步骤耗时当作完整新增成本。
+
+```bash
+gh workflow run ci-backend.yml --repo storytellerF/TrailHost --ref main
+gh run list --repo storytellerF/TrailHost --workflow ci-backend.yml --limit 10
+gh run view RUN_ID --repo storytellerF/TrailHost --log
+gh api 'repos/storytellerF/TrailHost/actions/caches?ref=refs/heads/main' \
+  --jq '.actions_caches[] | {key, ref, size_in_bytes, created_at, last_accessed_at}'
+```
+
+### fork 实测结果（2026-10-28）
+
+验证仓库为 `AgentStart1/TrailHost`，main 使用提交 `e184818`，Ubuntu 26.04 runner
+镜像 `20261025.179.1`、Rust 1.99.1（`58cf8f9c3`）。下表为 GitHub jobs API 的
+步骤及作业墙钟秒数，含 post 步骤、不含排队；小于一秒的步骤标为 `<1`。
+每次均通过 5 个单元测试和 15 个集成测试，日志无未知 `workdir` 输入警告。
+
+| 运行 | Rust 恢复 / post（秒） | Docker 恢复 / 加载 / post（秒） | 测试（秒） | 完整作业（秒） |
+| --- | --- | --- | ---: | ---: |
+| [main 冷缓存](https://github.com/AgentStart1/TrailHost/actions/runs/40669493070) | <1 / 8 | <1 / <1 / 2 | 85 | 102 |
+| [相同 main 提交热缓存](https://github.com/AgentStart1/TrailHost/actions/runs/40669802638) | 7 / <1 | 1 / 6 / <1 | 35 | 60 |
+| [新 PR 恢复 main](https://github.com/AgentStart1/TrailHost/actions/runs/40669948345) | 8 / <1 | 3 / 2 / 1 | 16 | 45 |
+| [PR 锁文件变更](https://github.com/AgentStart1/TrailHost/actions/runs/40670148464/attempts/1) | 10 / 6 | 2 / 2 / 3 | 59 | 93 |
+| [变更后的 PR 复跑](https://github.com/AgentStart1/TrailHost/actions/runs/40670148464/attempts/2) | 11 / <1 | 2 / 2 / <1 | 30 | 53 |
+
+冷运行明确报告没有可恢复的 Rust / Docker 缓存，随后在 `refs/heads/main` 保存
+Rust 缓存 386,374,248 字节（368.48 MiB）和 Docker 缓存 90,612,515 字节
+（86.41 MiB）。热运行和全新 [fork PR #1](https://github.com/AgentStart1/TrailHost/pull/1)
+均精确恢复 main 的键；缓存 API 当时仅列出 main 的这两个相关缓存，没有该 PR 自己的
+merge-ref 缓存。Rust 日志确认缓存路径包含 `backend/target`，并实际恢复了依赖编译产物。
+
+失效探针只在 fork 验证分支用 Cargo 将 `anyhow` 从 1.0.104 改为 1.0.103。
+Rust 键由 `v0-rust-backend-Linux-x64-01b81e85-3c4cb145` 变为
+`v0-rust-backend-Linux-x64-01b81e85-2fbe62b4`，回退恢复 main 的旧键并报告
+`full match: false`，重新下载和编译 anyhow 1.0.103 后通过测试。post 步骤在
+`refs/pull/1/merge` 保存新 Rust 缓存 387,955,466 字节；Docker 键也随锁文件改变，
+回退恢复原镜像后保存新键。随后对相同 PR 提交复跑，Rust 报告新键
+`full match: true`，Docker 也精确命中新键，20 个测试再次通过。
+探针和依赖变更不属于上游修复。
+
+这是上述五次运行的功能验收，runner 和编译耗时有波动，不作为稳定提速比例。
+新增 main 作业的样本成本为冷缓存 102 秒、热缓存 60 秒；这两次手动验证共 162 runner
+秒，计费分钟仍须以仓库用量报告为准。扩展和完整 E2E 没有新增 main 运行成本。
+工具链变更的键隔离沿用 action 默认行为，本次未单独实测不同 Rust 版本。
+
 ## API 参考
 
 除健康检查、注册、登录和刷新令牌外，HTTP API 使用 `Authorization: Bearer <access-token>` 认证。
