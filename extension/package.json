@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "preact": "^11.0.2"
+    "preact": "^11.1.1"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^3.0.0",
@@ -21,8 +21,8 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/preact": "^3.2.6",
     "@testing-library/user-event": "^14.6.8",
-    "@types/chrome": "^0.3.6",
-    "@types/node": "^26.6.5",
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.0.5",
     "jsdom": "^30.1.3",
     "typescript": "~7.0.2",
