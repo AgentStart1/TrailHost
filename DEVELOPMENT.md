@@ -370,7 +370,7 @@ Rust 键由 `v0-rust-backend-Linux-x64-01b81e85-3c4cb145` 变为
 | `POST` | `/api/auth/login` | 登录 |
 | `POST` | `/api/auth/refresh` | 刷新令牌 |
 | `POST` | `/api/auth/logout` | 登出 |
-| `POST` | `/api/history/batch` | 批量上传历史记录 |
+| `POST` | `/api/history/batch` | 事务内批量上传历史记录；失败时整批回滚，提交后广播；按用户、URL 的 SHA-256 摘要和访问时间去重，完整保留 URL |
 | `GET` | `/api/history` | 查询历史记录，支持 `q`、`limit` 和 `offset` 参数 |
 | `DELETE` | `/api/history/{id}` | 删除一条历史记录 |
 | `WS` | `/api/ws?token=<token>` | 实时同步连接 |

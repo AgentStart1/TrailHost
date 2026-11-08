@@ -78,6 +78,8 @@ docker compose up -d --force-recreate backend caddy
 docker compose up -d --build
 ```
 
+升级已有部署前请备份数据库。后端启动时会自动执行数据库迁移；长 URL 修复会将历史记录的去重索引改为 SHA-256 摘要，保留完整 URL 和已有记录。该迁移需要 PostgreSQL 12 或更新版本及 `pgcrypto` 扩展权限，并会锁表重建索引。升级时先停止旧后端，再启动新后端，避免旧代码与新索引同时运行；迁移后不能直接回退到使用旧索引的后端。
+
 查看服务状态和 HTTPS 证书日志：
 
 ```bash
