@@ -374,3 +374,18 @@ Rust 键由 `v0-rust-backend-Linux-x64-01b81e85-3c4cb145` 变为
 | `GET` | `/api/history` | 查询历史记录，支持 `q`、`limit` 和 `offset` 参数 |
 | `DELETE` | `/api/history/{id}` | 删除一条历史记录 |
 | `WS` | `/api/ws?token=<token>` | 实时同步连接 |
+
+### 扩展主题回归验证
+
+三页共享 `extension/src/theme.css` 的语义配色，通过
+`prefers-color-scheme` 自动跟随宿主，无需保存偏好或注册 JavaScript 监听器。
+
+构建扩展后，在 `e2e/` 执行 `npx playwright test theme.spec.ts`。
+测试使用独立临时 persistent profile、合成历史记录和拦截的 API；
+在真实扩展 URL 上检查浅/深色首开、运行期双向切换、关闭后重新进入，
+并读取 computed style、叠加祖先背景后检查文字对比度。
+截图和颜色/对比度 JSON 附加到 Playwright HTML 报告。
+Linux 无显示器时可使用 `CI=true` 启用现有 headless 扩展模式。
+
+这些媒体查询模拟用例验证浏览器渲染与生命周期，不代表操作系统设置切换的验收。
+发布前还应在目标 OS/浏览器上手动切换系统外观，确认三页即时更新。

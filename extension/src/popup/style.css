@@ -1,10 +1,12 @@
+@import "../theme.css";
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   width: 240px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--background);
+  color: var(--text);
   font-size: 14px;
 }
 
@@ -25,47 +27,46 @@ body {
 h1 {
   font-size: 18px;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .status {
   font-size: 13px;
-  color: #64748b;
+  color: var(--muted);
   margin-bottom: 2px;
 }
 
 button {
   padding: 9px;
-  background: #0284c7;
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   border: none;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
-button:hover { background: #0369a1; }
+button:hover { background: var(--primary-hover); }
 
 button.secondary {
   background: transparent;
-  border: 1px solid #334155;
-  color: #64748b;
+  border: 1px solid var(--border);
+  color: var(--muted);
   font-weight: 400;
 }
 
 button.secondary:hover {
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--hover);
+  color: var(--muted);
 }
 
 .spinner {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid #334155;
-  border-top-color: #38bdf8;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

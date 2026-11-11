@@ -1,9 +1,11 @@
+@import "../theme.css";
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--background);
+  color: var(--text);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -22,8 +24,8 @@ body {
 .card {
   width: 100%;
   max-width: 400px;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 36px 32px;
   display: flex;
@@ -46,34 +48,34 @@ body {
 
 .logo-icon {
   font-size: 28px;
-  color: #38bdf8;
+  color: var(--accent);
   line-height: 1;
 }
 
 .logo-text {
   font-size: 22px;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--accent);
   letter-spacing: -0.3px;
 }
 
 h1 {
   font-size: 20px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text);
   margin-top: -4px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #64748b;
+  color: var(--muted);
   margin-top: -12px;
 }
 
 /* Tabs */
 .tabs {
   display: flex;
-  background: #0f172a;
+  background: var(--background);
   border-radius: 8px;
   padding: 3px;
   gap: 2px;
@@ -85,16 +87,15 @@ h1 {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
 }
 
 .tab.active {
-  background: #1e293b;
-  color: #e2e8f0;
+  background: var(--surface);
+  color: var(--text);
 }
 
 /* Form */
@@ -113,69 +114,68 @@ form {
 label {
   font-size: 13px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 input {
   padding: 10px 12px;
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: var(--background);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: #e2e8f0;
+  color: var(--text);
   font-size: 15px;
-  outline: none;
-  transition: border-color 0.15s;
 }
 
 input:focus {
-  border-color: #38bdf8;
+  border-color: var(--accent);
 }
 
 input::placeholder {
-  color: #475569;
+  color: var(--muted);
 }
 
 .btn-primary {
   margin-top: 4px;
   padding: 11px;
-  background: #0284c7;
-  color: #fff;
+  background: var(--primary);
+  color: var(--on-primary);
   border: none;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0369a1;
+  background: var(--primary-hover);
 }
 
 .btn-primary:disabled {
-  opacity: 0.55;
+  background: var(--primary-hover);
   cursor: not-allowed;
 }
 
 .error {
   font-size: 13px;
-  color: #f87171;
-  background: #450a0a33;
-  border: 1px solid #7f1d1d55;
+  color: var(--error-text);
+  background: var(--error-background);
+  border: 1px solid var(--error-border);
   border-radius: 6px;
   padding: 8px 10px;
 }
 
 .change-server {
+  background: transparent;
+  border: none;
+  padding: 0;
   font-size: 13px;
-  color: #475569;
+  color: var(--muted);
   text-align: center;
   cursor: pointer;
-  transition: color 0.15s;
 }
 
 .change-server:hover {
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 /* Spinner */
@@ -183,8 +183,8 @@ input::placeholder {
   display: inline-block;
   width: 28px;
   height: 28px;
-  border: 3px solid #334155;
-  border-top-color: #38bdf8;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -192,3 +192,5 @@ input::placeholder {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.tab:hover:not(.active) { background: var(--hover); color: var(--text); }

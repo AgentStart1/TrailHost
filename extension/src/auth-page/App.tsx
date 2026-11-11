@@ -165,9 +165,9 @@ export function App() {
           </button>
         </form>
 
-        <p class="change-server" onClick={() => { setStep("setup"); setError(""); }}>
+        <button type="button" class="change-server" onClick={() => { setStep("setup"); setError(""); }}>
           更换服务器
-        </p>
+        </button>
       </div>
     </div>
   );

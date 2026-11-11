@@ -1,0 +1,46 @@
+/* CSS media queries follow the host on first paint and while pages remain open. */
+:root {
+  color-scheme: light dark;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --hover: #e2e8f0;
+  --text: #0f172a;
+  --muted: #475569;
+  --accent: #0369a1;
+  --border: #64748b;
+  --primary: #0369a1;
+  --primary-hover: #075985;
+  --on-primary: #ffffff;
+  --danger: #b91c1c;
+  --error-text: #991b1b;
+  --error-background: #fef2f2;
+  --error-border: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f172a;
+    --surface: #1e293b;
+    --hover: #334155;
+    --text: #f1f5f9;
+    --muted: #cbd5e1;
+    --accent: #7dd3fc;
+    --border: #94a3b8;
+    --primary: #0369a1;
+    --primary-hover: #075985;
+    --danger: #b91c1c;
+    --error-text: #fecaca;
+    --error-background: #450a0a;
+    --error-border: #f87171;
+  }
+}
+
+:where(button, a, input):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
